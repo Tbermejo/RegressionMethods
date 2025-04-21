@@ -1,0 +1,461 @@
+---
+title: "Trabajo final_Regresión"
+author: "T.bermejo"
+date: "2024-07-02"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+# Métodos de Regresión Aplicados a Modelos de Ahusamiento para la estimación de volumen comercial de la especie *Clathrotropis brunnea Amshoff.*
+
+## Universidad Nacional de Colombia
+
+## Departamento de Matemáticas y Estadística
+
+## Trabajo Final Regresión
+
+### 1. Introducción
+
+Los modelos de ahusamiento requieren de la aplicación de métodos de regresión para el ajuste óptimo de los parámetros de acuerdo con las características de la especie, proporcionando una aproximación para determinar el diámetro y el volumen en función de cualquier altura (ℎ𝑖) del árbol (Hernández Espinoza, 2004). Estas ecuaciones matemáticas son ampliamente utilizadas con el fin de predecir el comportamiento geométrico del fuste y estimar de manera más adecuada el volumen de madera aprovechable, a partir de la medición de variables dasométricas en campo como los son el diámetro del tronco a diferentes alturas (Riaño y Lizarazo, 2017).
+
+La estimación del volumen de madera utilizando herramientas de cuantificación con la mayor aproximación posible, permite gestionar de manera más acertada los recursos y proporciona bases de planificación óptima para su aprovechamiento. En este sentido, en la literatura se encuentran diferentes modelos de ahusamiento que permiten realizar una estimación; sin embargo, el ajuste de estos depende directamente de las característcas de la especie.
+
+El objetivo de este trabajo es realizar comparaciones entre tres modelos de ahusamiento aplicando métodos de regresión lineal con el fin de definir el modelo que mejor se ajuste a los datos. Para ello, se utilizó una base de datos propia con información tomada en campo de 34 árboles de la especie *Clathrotropis brunnea*.
+
+### 2. Análisis descriptivo de los datos
+
+```{r}
+library(readxl)
+Ahusamiento <- read_excel("C:/Users/tberm/Desktop/Ahusamiento.xlsx")
+View(Ahusamiento)
+attach(Ahusamiento)
+
+library(dplyr)
+library(knitr)
+
+
+# Calcular estadísticas descriptivas
+estadisticas <- Ahusamiento %>%
+  summarise(
+    Media = c(mean(dap, na.rm = TRUE), mean(h, na.rm = TRUE), mean(Y, na.rm = TRUE), mean(Kozak, na.rm = TRUE), mean(Amidon0, na.rm = TRUE), mean(Amidon1, na.rm = TRUE), mean(Renteria, na.rm = TRUE)),
+    Mediana = c(median(dap, na.rm = TRUE), median(h, na.rm = TRUE), median(Y, na.rm = TRUE), median(Kozak, na.rm = TRUE), median(Amidon0, na.rm = TRUE), median(Amidon1, na.rm = TRUE), median(Renteria, na.rm = TRUE)),
+    VAR = c(var(dap, na.rm = TRUE), var(h, na.rm = TRUE), var(Y, na.rm = TRUE), var(Kozak, na.rm = TRUE), var(Amidon0, na.rm = TRUE), var(Amidon1, na.rm = TRUE), var(Renteria, na.rm = TRUE)),
+    SD = c(sd(dap, na.rm = TRUE), sd(h, na.rm = TRUE), sd(Y, na.rm = TRUE), sd(Kozak, na.rm = TRUE), sd(Amidon0, na.rm = TRUE), sd(Amidon1, na.rm = TRUE), sd(Renteria, na.rm = TRUE)),
+    Minimo = c(min(dap, na.rm = TRUE), min(h, na.rm = TRUE), min(Y, na.rm = TRUE), min(Kozak, na.rm = TRUE), min(Amidon0, na.rm = TRUE), min(Amidon1, na.rm = TRUE), min(Renteria, na.rm = TRUE)),
+    Maximo = c(max(dap, na.rm = TRUE), max(h, na.rm = TRUE), max(Y, na.rm = TRUE), max(Kozak, na.rm = TRUE), max(Amidon0, na.rm = TRUE), max(Amidon1, na.rm = TRUE), max(Renteria, na.rm = TRUE))
+  ) %>%
+  t() %>%
+  as.data.frame()
+
+# Añadir nombres de columnas
+colnames(estadisticas) <- c("DAP (cm)", "Altura H (m)", "Y", "Kozak", "Amidon0", "Amidon1", "Renteria")
+
+# Añadir nombres de filas
+rownames(estadisticas) <- c("Media", "Mediana", "Varianza", "Desviación Estándar", "Mínimo", "Máximo")
+
+# Dataframe
+kable(estadisticas, caption = "Estadísticas Descriptivas de las Variables")
+
+```
+
+En la tabla anterior, se describen los estadísticos descriptivos de las variables del banco de datos.
+
+Las variable definida como diametro a la altura del pecho (DAP), es una medida tomada a 1.3 m del suelo en el tronco del árbol , a continuación se presenta el histograma de distribución para los individuos arbóreos muestreados.
+
+```{r}
+hist(dap)
+
+```
+
+La variable "d", corresponde al diametro a diferentes alturas del tronco del árbol. En el siguiente gráfico, se evidencia que tiende a una distribución normal.
+
+```{r}
+hist(d)
+```
+
+Por otra parte, otras variables de importancia para la descripción geométrica del tronco del árbol es la altura total y la altura a diferentes distancias. Según el gráfico de alturas totales y las alturas totales de los árboles muestreados no presentan una tendencia normal.
+
+```{r}
+hist(h)
+hist(hi)
+
+
+```
+
+En términos de la variable respuesta "Y", la distribución de los datos tiende a una distribución normal, como se evidencia en la siguiente gráfica.
+
+```{r}
+hist(Y)
+
+```
+
+La relación entre las variables de diámetro y altura están relacionadas inversamente; dado que, a medida que el árbol aumenta en altura el diamétro debe ser menor. Esta relación permite describir geométricamente el tronco y puede variar de acuerdo con las características de crecimiento de la especie.
+
+El diámetro relativo que corresponde a:
+
+$Diámetro relativo = (d/D)^2$
+
+Y la altura relativa que corresponde al cociente entre altura a una distancia i entre la altura total del árbol:
+
+$Altura relativa = (h/H)$
+
+En los siguientes gráficos de dispersión para cada uno de los modelos, evidencia la tendencia explicativa de las variables regresoras con respecto a la variable respuesta.
+
+```{r}
+# Diagrama de dispersión entre las variables relativas 
+library(ggplot2)
+
+ggplot(Ahusamiento, aes(x = Kozak, y = Y)) +
+  geom_point(color = "blue", size = 3, alpha = 0.6) +
+  labs(
+    title = "Diagrama de Dispersión",
+    x = "Altura relativa (h/H)",
+    y = "Diámetro relativo (d/DAP)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Diagrama de dispersión entre las variables para el caso del modelo Amidon (1984)
+library(ggplot2)
+
+ggplot(Ahusamiento, aes(x = Amidon0, y = d)) +
+  geom_point(color = "blue", size = 3, alpha = 0.6) +
+  labs(
+    title = "Diagrama de Dispersión",
+    x = "Altura relativa (H-h/H-1.3)",
+    y = "Diámetro d"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Diagrama de dispersión entre las variables para el caso del modelo Renteria y Ramírez Maldonado (1998)
+library(ggplot2)
+
+ggplot(Ahusamiento, aes(x = Renteria, y = Y)) +
+  geom_point(color = "blue", size = 3, alpha = 0.6) +
+  labs(
+    title = "Diagrama de Dispersión",
+    x = "Altura relativa (H-h/H)",
+    y = "Diámetro d"
+  ) +
+  theme_minimal()
+```
+
+Dado que, la tendencia de dispersión para las variables presenta una tendencia exponencial, se considera relevante utilizar una transformación para la linealización de las variables.
+
+Finalmente, para definir la correlación entre las variables utilizadas para el ajuste de los modelos de ahusamiento, se presenta el siguiente gráfico. El cual demuestra que existe una correlación fuerte entre las variables predictoras y la variable respuesta.
+
+```{r}
+library(dplyr)
+
+Ahusamiento_1 <- Ahusamiento %>%
+  select(Y, Kozak, Amidon0, Amidon1, Renteria) 
+ 
+library(corrplot)
+corrplot(cor(Ahusamiento_1),
+         method = "circle",       
+         order = "hclust",         
+         hclust.method = "ward.D", )
+```
+
+A continuación, se presentan los modelos de ahusamiento de referencia utilizados para realizar la comparación.
+
+![](images/clipboard-1595754055.png)
+
+Donde: d= diámetro (cm) de la i-ésima sección a la altura h, h= altura de la i-ésima sección desde el suelo (m), D= diámetro a la altura del pecho (a 1.3 m del suelo) (cm), H= altura total del árbol (m) y 𝛽𝑖= coeficientes de regresión determinados mediante ajuste.
+
+### 3. Selección de variables
+
+Los modelos convencionales de ahusamiento, en su configuración utilizan variables dasométricas; es decir, son medidas del diámetro del árbol a diferentes alturas y la alturas relativas entre el cociente de la altura hi sobre la altura total del árbol.
+
+Para el ajuste de los distintos modelos evaluados, se establecen como variables predictoras variaciones de la altura hi con respecto a la altura total del árbol, estas serán definidas según lo dispuesto en el tipo de modelo de ahusamiento. La variable respuesta, para el caso de los modelos de Kozak et al (1969) y Rentería y Ramirez Maldonado (1998) es el diametro relativo elevado al cuadrado, mientras que para el modelo Amidon (1984) la variable respuesta será el diametro (d) a cualquier altura.
+
+```{r}
+str(Ahusamiento)
+
+```
+
+### 4. Ajuste de los modelos de ahusamiento
+
+Para el ajuste de los modelos, se utilizaron las variaciones de Xi, según los requerimientos de cada modelo de ahusamiento con respecto a las transformaciones requeridas.
+
+```{r}
+mod_kozak <- lm(log(Y) ~ poly(log(Kozak), 2), data = Ahusamiento)
+summary(mod_kozak)
+
+```
+
+Ecuación del modelo ajustado de Kozak (1969).
+
+$$
+(d/D)^2 = -0.2153 - 4.0485 (h/H) - 0.6613 (h/H)^2 + ei
+$$
+
+La prueba de significancia del modelo obtenido a partir del ajuste, con un nivel de confianza del 95% y un valor P \< 0.05. Adicionalmente, los parámetros ajustados son significativos. El ajuste del modelo es bueno, lo cual indica que la variable respuesta es explicada hasta el 85.09% por las varriables regresoras, en este caso, la altura relativa de los árboles muetreados.
+
+```{r}
+mod_Amidon <- lm(d ~ Amidon0 + Amidon1, data = Ahusamiento)
+summary(mod_Amidon)
+
+```
+
+Ecuación del modelo de Amidon (1984):
+
+$$
+d = 33.7276 + 0.3491 * D ((H- h)/(H - 1.3)) - 0.3487((H^2 - h^2) - (h - 1.3))/ H^2) + ei
+$$
+
+Con un nivel de confianza del 95%, el modelo ajustado logra explicar el 71.55% de la variabilidad de la variable respuesta, que en este caso es el diámetro del árbol a una distancia i con respecto a las variables regresoras utilizadas en función de la altura total y la altura. Igualmente, los coeficientes cálculados para el modelo son significativos, ya que presentan un valor p \< 0.05.
+
+El error residual estándar para el modelo de Amidon (1984) es de 4.41 cm en el diámetro predicho.
+
+```{r}
+
+mod_renteria <- lm(Y ~ poly(Renteria, 3), data = Ahusamiento)
+summary(mod_renteria)
+
+```
+
+Ecuación del modelo ajustado de Rentería y Ramírez Maldonado (1998):
+
+$$
+(d/D)^2 = 0.8449 + 3.0874((H-h)/H) + 0.9766 ((H-h)/H)^2 + 0.4349 ((H-h)/H)^3 + ei
+$$
+
+Para el modelo ajustado de Rentería y Ramírez Maldinado (1998), se determinó con un nivel de confianza del 95%, la prueba de significancia del modelo con un p valor \< 0.05. La bondad de ajuste del modelo es del 86.58%, indicando que existe un buen ajuste entre las variables regresoras con respecto a la variabilidad de la variable respuesta, en este caso el diámetro relativo.
+
+En consecuencia, con los resultados obtenidos de los tres modelos ajustados, se evidencia que los modelos de Kozak y Rentería y Ramirez Maldonado, por presentar características similares, en cuanto a la variable respuesta, pueden ser comparados. El modelo de Rentería y Ramírez Maldonado presenta un error residual estándar de 0.09131, menor al valor obtenido a partir del modelo de Kozak, el cual fue 0.09623.
+
+### 5. Inferencias y predicciones
+
+Considerando los modelos de ahusamiento ajustados anteriormente, se utiliza un banco de datos de 75 observaciones para realizar predicciones y validar el ajuste con respecto a los datos observado frente a los datos predichos. Para esta comparación, se tiene en cuenta la Raíz del Error cuadrático medio (RMSE) y el Error Medio Absoluto (MAE).
+
+Para el caso del Modelo Amidon (1984), no es comparable con los otros dos modelos ajustados, debido a que la variable respuesta en este caso, es el diamétro i a cualquier altura; mientras que, como se ha mencionado anteriormente, los modelos de Kozak y Rentería - Ramírez Maldonado utilizan el diamétro relativo.
+
+```{r}
+
+library(readxl)
+Verificacion <- read_excel("C:/Users/tberm/Desktop/Verificacion.xlsx")
+#View(Verificacion)
+
+attach(Verificacion)
+
+#Modelo de Kozak
+
+y_pred_Kozak <- predict(mod_kozak, newdata = Verificacion)
+y_test_Kozak <- Verificacion$Y
+
+#View(data.frame(y_test_Kozak, y_pred_Kozak))
+
+## RMSE
+sqrt(mean((y_pred_Kozak - y_test_Kozak)^2))
+
+## MAE
+mean(abs(y_pred_Kozak - y_test_Kozak))
+
+#Modelo de Amidon
+
+y_pred_Amidon <- predict(mod_Amidon, newdata = Verificacion)
+y_test_Amidon <- Verificacion$d
+
+#View(data.frame(y_test_Amidon, y_pred_Amidon))
+
+# RMSE
+sqrt(mean((y_pred_Amidon - y_test_Amidon)^2))
+
+# MAE
+mean(abs(y_pred_Amidon - y_test_Amidon))
+
+#Modelo Renteria y Ramiírez Maldonado
+
+y_pred_Renteria <- predict(mod_renteria, newdata = Verificacion)
+y_test_Renteria <- Verificacion$Y
+
+#View(data.frame(y_test_Renteria, y_pred_Renteria))
+
+# RMSE
+sqrt(mean((y_pred_Renteria - y_test_Renteria)^2))
+
+# MAE
+mean(abs(y_pred_Renteria - y_test_Renteria))
+
+
+
+
+
+```
+
+|      | Modelo Kozak et al (1969) | Modelo Amidon (1984) | Modelo Renteria y Ramírez Maldonado (1998) |
+|------|---------------------------|----------------------|--------------------------------------------|
+| RMSE | 1.0723                    | 15.7859              | 0.0946                                     |
+| MAE  | 1.0669                    | 13.6122              | 0.0663                                     |
+
+En la tabla anterior, se presenta la estimación del error de las predicciones realizadas por medio de los tres modelos ajustados.
+
+Aplicación de modelos lineales generalizados en el ajuste de modelos de ahusamiento:
+
+```{r}
+library(nlme)
+gls_mod_kozak <- gls(log(Y) ~ poly(log(Kozak), 2),
+               correlation = corAR1(),
+               data = na.omit(Ahusamiento))
+
+summary(gls_mod_kozak)
+```
+
+$$
+(d/D)^2 = -0.2157 - 4.2499 (h/H) - 0.5349 (h/H)^2 + ei
+$$
+
+### 6. Diagnóstico del modelo
+
+Verificación de los supuesto del modelo ajustado Kozak (1969).
+
+#### 6.1 Varianza constante
+
+```{r}
+
+par(mfrow=c(1,2))
+plot(fitted(mod_kozak), residuals(mod_kozak), xlab = "Valores ajustados", ylab = "Residuos")
+abline(h=0, col = "red")
+plot(fitted(mod_kozak), sqrt(abs(residuals(mod_kozak))), xlab="Valores ajustados", ylab = expression(sqrt(hat(epsilon))))
+```
+
+Según el gráfico, se evidencia una dispersión de la varianza alta, dado que los residuos presentan alta variabilidad en algunas zonas. Para contrarestar estos resultados gráficos, se utilizó enl test de Breusch-Pagan, dando como resultado un P valor \< 0.05, lo cual indica que la varianza de los residuos es constante.
+
+```{r}
+library(lmtest)
+bptest(mod_kozak)
+```
+
+#### 6.2 Normalidad
+
+De acuerdo con el gráfico de los residuales con respecto a los cuantiles teóricos, se evidencia unas colas largas en la distribución de los errores, en gran medida en la parte inferiror. Para contrastar estos resultados, se utilizó la prueba de Kolmogorov Smirnoff
+
+```{r}
+qqnorm(residuals(mod_kozak), ylab="Residuals", main = "")
+qqline(residuals(mod_kozak))
+
+```
+
+Con un nivel de confianza del 95%, los residuales del modelo de Kozak (1969) cumple con el supuesto de normalidad, con un p valor \> 0.05 (0.07714).
+
+```{r}
+# Extraer los residuos del modelo
+residuos <- residuals(mod_kozak)
+
+ks.test(residuos, "pnorm", mean = mean(residuos), sd = sd(residuos))
+```
+
+#### 6.3 Errores correlacionados
+
+```{r}
+n <- length(residuals(mod_kozak))
+plot(tail(residuals(mod_kozak), n-1)~head(residuals(mod_kozak), n-1),xlab=expression(hat(epsilon)[i]), ylab=expression(hat(epsilon)[i+1]))
+abline(h=0,v=0, col=grey(0.75))
+```
+
+Aplicando el test de Durbin-Watson para verificar la correlación entre los errores, se evidencia, con un nivel de confianza del 95% de que hay pruebas estadísticamente significativas de que los errores del modelo están correlacionados. El valor p \< 0.05, indica que p es diferente de 0, es decir que hay autocorrelación. Esto puede explicarse a que la naturaleza de los datos con respecto a los diámetros relativos de los árboles a una altura hi depende de la anterior medición.
+
+```{r}
+library(lmtest)
+dwtest(mod_kozak)
+```
+
+#### 6.4 Leverage
+
+Hay evidencia de Leverage altos, como se muestra en el siguiente gráfico:
+
+```{r}
+X <- model.matrix(mod_kozak)
+lev <- hat(X)
+plot(lev,ylab="Leverages",main="Index plot of Leverages")
+abline(h=2*length(coef(mod_kozak))/dim(X)[1], col = "blue")
+
+names(lev) <- row.names(Kozak)
+lev[lev > 2*length(coef(mod_kozak))/dim(X)[1]]
+```
+
+#### 6.5 Outliers
+
+Se identifica como outlier el dato 191 con un valor residual estandar mayor a 3.
+
+```{r}
+
+# Residuales comunes
+errores <- residuals(mod_kozak)
+
+# Residuales estandarizados
+ri <- rstandard(mod_kozak)
+
+par(mfrow = c(1,1))
+plot(errores, main = "Residuales")
+plot(ri, main = "Residuales estandarizados")
+
+# Hay puntos con un residual estandarizado grande?
+which(abs(ri) > 3)
+
+p <- length(coef(mod_kozak))
+n <- length(Kozak)
+
+# Residuales studentizados (jacknife)
+ti <- rstudent(mod_kozak)
+plot(ti, main = "Residuos jacknife", ylab = expression(t[i]))
+
+# Prueba de hipótesis para detectar outliers
+alpha <- 0.05
+pval <- 2*pt(abs(ti), df = n-p-1, lower.tail = F)
+which(pval < alpha/n)
+```
+
+#### 6.6 Identificación de datos influyentes
+
+No se evidencia datos influyentes con distancia de cook mayor a 1.
+
+```{r}
+
+# Distancia de cook
+dist_cook <- cooks.distance(mod_kozak)
+plot(dist_cook)
+abline(h = 1, col = "blue")
+
+# observaciones con distancia de cook > 1
+which(dist_cook > 1)
+```
+
+#### 6.7 Multicolinealidad
+
+```{r}
+library(faraway)
+vif(mod_kozak)
+mean(vif(mod_kozak))
+```
+
+### 7. Conclusiones
+
+Los métodos de regresión aplicados al ajuste de modelos de ahusamiento permiten definir los coeficientes que mejor se ajustan para describir la geometría cónica del tronco del árbol, dadas las variaciones entre cada modelo de ahusamiento no es posible realizar una comparación entre estos; sin embargo, sí es posible la verificación de los supuestos para la validación de cada uno de los modelos de ahusamiento.
+
+Se utilizaron métodos de trasformación de variables para el ajuste de los modelos, como es el caso utilizado para el modelo de ahusamiento de Kozak, en el cual se utilizó la transformación logarítmica, ya que la dispersión entre la variable predictora y la variable regresora presentaban una tendencia exponencial.
+
+En la fase de validación de supuestos, se evidenció en el modelo Kozak presenta autocorrelación de los errores, esto puede ser corregido utilizando Modelos lineales generalizados (GLM). La autocorrelación de los errores puede ser explicada, dada la naturaleza de los datos, ya que estos corresponden a una medición sucesiva de diámetros a diferentes alturas del árbol. Adicionalmente, debido a que las características de los modelos implicitamente, desde su configuración matemática incluye modificaciones en las variables, como los son los diámetros y alturas relativas, lo cual puede generar la repetición de datos.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+## Including Plots
+
+You can also embed plots, for example:
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
